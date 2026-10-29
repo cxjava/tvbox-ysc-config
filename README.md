@@ -1,123 +1,90 @@
-# 影视仓配置聚合仓库（TVBox Config Aggregator）
+# TVBox / 影视仓配置聚合与检测
 
-![配置状态](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2FLightconer%2Ftvbox-ysc-config%2Fmain%2Foutput%2Fshield.json)
-![更新频率](https://img.shields.io/badge/%E6%9B%B4%E6%96%B0-%E6%AF%8F%E5%A4%A9%202%20%E6%AC%A1-blue)
+定时下载公开配置，逐层检测多仓子地址，剔除失败项，将 **整个 `output/` 发布到 GitHub Pages**。发布方式与 `lx-merged-repo` 一致，使用官方 Pages Actions，不再把自动生成结果提交回 `main`。
 
-聚合 **肥猫、饭太硬、王二小、老刘备、小马、讴歌（欧歌）、4K小盒子、小盒子单仓、拾光多仓、挺好分享多仓** 等多个影视仓 / TVBox 单仓配置，通过 **GitHub Actions 定时自动更新**，并把结果直接提交回本仓库，供影视仓、TVBox、OK影视等软件随时拉取最新接口。
+## 使用地址
 
-> 所有配置均来自互联网公开分享，版权归原作者所有；本仓库仅做聚合与镜像，仅供学习交流，请勿商用。
+- **检测报告首页**：https://cxjava.github.io/tvbox-ysc-config/
+- **多仓订阅（推荐）**：https://cxjava.github.io/tvbox-ysc-config/多仓订阅.json
+- **单仓聚合**：https://cxjava.github.io/tvbox-ysc-config/单仓聚合.json
+- **完整检测记录**：https://cxjava.github.io/tvbox-ysc-config/status.json
 
----
+将订阅地址填入 TVBox、影视仓或 OK影视的配置设置。首页展示本轮可用源、有效单仓、失败检查项、聚合站点数量，以及逐层子仓和 UA 请求结果，也提供全部 JSON 产物链接。
 
-## 一、源可用性状态
+首次部署：在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**，然后运行 **Actions → Auto Update TVBox Configs → Run workflow**。
 
-<!-- STATUS_START -->
-> 🔄 最近更新：2026-10-29 13:18:28（北京时间） · 成功 **9/10** 个源
+Fork 后地址自动使用自己的仓库；自定义域名使用 `actions/configure-pages` 返回的实际基址。Pages 路径直接对应 `output/` 内的文件，不带 `/output/` 前缀。
 
-| 配置源 | 状态 | 使用地址 |
-| --- | --- | --- |
-| 肥猫 | ✅ 成功 | `http://肥猫.net/tv` |
-| 饭太硬 | ❌ 失败 | HTTPConnectionPool(host='www.xn--sss604efuw.xyz', port=80... |
-| 王二小 | ✅ 成功 | `https://d.kstore.dev/download/9280/wex.json` |
-| 老刘备 | ✅ 成功 | `https://raw.liucn.cc/box/m.json` |
-| 小马 | ✅ 成功 | `https://szyyds.cn/tv/x.json` |
-| 讴歌 | 📦 缓存 | 上次成功配置（本次更新未抓到，沿用缓存） |
-| 4K小盒子 | ✅ 成功 | `http://xhztv.top/4k.json` |
-| 小盒子单仓 | ✅ 成功 | `http://xhztv.top/xhz` |
-| 拾光多仓 | ✅ 成功 | `http://xmbjm.fh4u.org/dc.txt` |
-| 挺好分享多仓 | ✅ 成功 | `http://ztha.top/TVBox/GYCK.json` |
-<!-- STATUS_END -->
+## 检测机制
 
-## 二、仓库结构
+每个源按主地址、备用地址顺序检测。每个地址依次尝试：
 
-```
-tvbox-ysc-config/
-├── .github/workflows/update.yml   # GitHub Actions 自动更新工作流
-├── config/sources.json            # 配置源列表（主地址 + 备用地址），可自行增删改
-├── scripts/update.py              # 核心更新脚本（下载→校验→合并→落盘→更新状态）
-├── output/                        # 更新产物（由脚本自动生成并提交）
-│   ├── 多仓订阅.json               # 多仓聚合订阅（推荐，App 内可切换各源）
-│   ├── 单仓聚合.json               # 单仓聚合（所有源 sites 合并成一个，开箱即用）
-│   ├── shield.json                # shields.io 状态徽章数据
-│   ├── status.json                # 各源更新状态（机器可读）
-│   ├── feimao.json / fantaiying.json / ...  # 各源独立配置
-│   └── ...
-├── requirements.txt
-└── README.md
-```
+1. `okhttp/3.12.11`
+2. Android 14 / Chrome 手机 UA
+3. iPhone / Safari 手机 UA
 
-## 三、在影视仓 / TVBox 中使用
+请求成功且返回非空 TVBox 配置后停止切换 UA。403、超时、HTML 挑战页、无法解析或空配置都会换下一个 UA；三个全部失败，记录为**当前检测环境不可用**，再尝试备用地址。网络或地区限制也可能造成失败，不能仅据此认定网站永久失效。
 
-部署完成后，把下面任一地址填入 App 的「设置 → 配置地址」：
+- 同时兼容 `urls` / `订阅` 多仓列表，递归检测所有子地址，支持相对子地址、循环引用检测和最多 10 层嵌套。
+- 多仓只保留通过本轮检测的子项，并将链接改为 Pages 上的已过滤镜像，避免客户端再次拉到未过滤列表。
+- 相同地址在同一轮复用网络检测结果；不同配置源最多 6 路并发，子仓按序检查。
+- 子仓失败即剔除，多仓没有任何有效子仓也判为失败。**不把旧缓存算作本轮成功。**
+- 单仓聚合包含有效子仓里的站点，为不同源保留各自的插件 JAR；镜像时转换显式相对资源地址。
+- `status.json` 记录原始地址、重定向后的地址、每次 UA、HTTP 状态、耗时、错误和子仓结果。
+- **检测范围为配置可下载、可解析，不包含插件执行、站内搜索或视频播放验证。**
 
-| 类型 | 地址 | 说明 |
-| --- | --- | --- |
-| **多仓订阅（推荐）** | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/多仓订阅.json` | App 内可在各源之间切换 |
-| **单仓聚合** | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/单仓聚合.json` | 所有源站点合并成一个，无需切换 |
-| 单仓 · 肥猫 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/feimao.json` | 单独使用某一个源 |
-| 单仓 · 饭太硬 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/fantaiying.json` | |
-| 单仓 · 王二小 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/wangerxiao.json` | |
-| 单仓 · 老刘备 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/laoliubei.json` | |
-| 单仓 · 小马 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/xiaoma.json` | |
-| 单仓 · 讴歌 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/ouge.json` | |
-| 单仓 · 4K小盒子 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/4k.json` | |
-| 单仓 · 小盒子单仓 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/xiaohezi.json` | |
-| 单仓 · 拾光多仓 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/shiguang.json` | |
-| 单仓 · 挺好分享多仓 | `https://raw.githubusercontent.com/Lightconer/tvbox-ysc-config/main/output/tinghao.json` | |
+## 自动发布
 
-> 多仓订阅与单仓文件里的地址由脚本根据 `GITHUB_REPOSITORY` 环境变量自动生成。若国内直连 raw.githubusercontent.com 慢，可套一层 `ghproxy` / `gh-proxy` 等加速前缀。
+工作流每天 UTC 02:00、14:00（北京时间 10:00、22:00）运行，也支持手动触发。修改脚本、配置、测试、依赖或工作流后推送 `main` 同样触发。
 
-## 四、自动更新机制
+流程：回归测试 → 配置 Pages → 清空 CI 内的旧 output → 检测并生成最新产物 → 上传整个 output → 部署 Pages。
 
-- 推送后，GitHub 自动识别 `.github/workflows/update.yml`。
-- 默认每天 **02:00 和 14:00（UTC，即北京时间 10:00 和 22:00）** 自动更新一次。
-- 也可在 **Actions → Auto Update TVBox Configs → Run workflow** 手动触发。
-- 更新结果自动提交回 `main` 分支，README 状态表与徽章同步刷新。
-- 工作流使用内置 `GITHUB_TOKEN`，无需配置任何密钥。
+只要一个源通过就发布本轮有效结果。全部源失败时生成诊断报告、工作流返回失败，**保留线上上次部署**。本轮产物可从 Actions 的 `tvbox-test-results` artifact 下载排查。部署权限仅使用内置 `GITHUB_TOKEN` 的 `pages: write` 和 `id-token: write`，无需额外密钥。
 
-## 五、自定义配置源
+## 自定义配置源
 
-编辑 `config/sources.json` 即可增删配置源或更换地址：
+编辑 `config/sources.json`：
 
 ```json
 {
   "id": "mysource",
   "name": "我的源",
-  "urls": [
-    "https://example.com/tv",
-    "https://backup.example.com/tv"
-  ]
+  "urls": ["https://example.com/tv.json", "https://backup.example.com/tv.json"]
 }
 ```
 
-- `id`：输出文件名（建议英文小写）。
-- `name`：在多仓订阅与状态表中展示的名字。
-- `urls`：依次尝试的地址列表，第一个成功的会被使用；可按"主地址在前、备用在后"排列。
-- 修改后推送到 `main` 分支即会自动触发一次更新。
+`id` 使用英文字母、数字、下划线或连字符，决定输出文件名；`urls` 按优先级排列。已包含 `https://xmbjm.fh4u.org/dc.txt?i=1`，其下的子地址也会参与检测。
 
-## 六、本地手动更新（可选）
+## 本地运行
+
+需要 Python 3.11+：
 
 ```bash
 pip install -r requirements.txt
-REPO=Lightconer/tvbox-ysc-config python scripts/update.py
+python -m unittest discover -s tests -v
+REPO=cxjava/tvbox-ysc-config python scripts/update.py
+python -m http.server 8000 --directory output
 ```
 
-## 七、脚本特性
+打开 `http://localhost:8000` 预览报告。本地指定部署域名可设置 `PAGES_BASE_URL=https://example.com`。本地重新生成会更新产物清单管理的文件，移除本轮失效的旧文件；生成结果不会自动提交或上传。
 
-- **中文域名自动转 punycode**：`饭太硬.com` → `xn--sss604efuw.com`，避免 DNS 解析失败。
-- **多地址回退**：每个源按顺序尝试主/备用地址，单个地址失败不影响其他源。
-- **智能重试**：仅对超时、连接错误、空响应等瞬态问题退避重试；4xx/5xx 等确定性失败直接跳过。
-- **兼容多仓订阅**：既支持单仓（含 sites 字段），也支持多仓订阅（顶层 urls 数组）格式。
-- **反爬兼容**：使用简洁 UA（部分接口对完整浏览器 UA 下发挑战页），自动剔除 JSON 内嵌的 `//` 注释，兼容未转义控制字符。
-- **聚合单仓**：把所有成功源的 `sites` 按 key 去重合并（重复 key 自动加源前缀），`lives/parses` 等列表合并去重。
-- **状态可视化**：每次更新自动刷新 README 状态表与 shields.io 徽章。
-- **部分成功可用**：只要有一个源成功就产出可用订阅，失败源记录在 `status.json` 与 README 状态表。
+## 产物
 
-## 八、常见问题
+```text
+output/
+├── index.html          # 检测报告首页、主要订阅、全部 JSON 下载
+├── REPORT.md           # Actions 摘要
+├── 多仓订阅.json         # 通过检测的配置源
+├── 单仓聚合.json         # 含有效子仓站点的聚合
+├── <id>.json           # 各源已过滤镜像
+├── children/*.json     # 有效子仓镜像
+├── status.json         # 本轮检测详细记录
+├── shield.json         # shields.io 徽章数据
+└── manifest.json       # 本轮产物清单
+```
 
-- **某个源一直失败？** 大部分源做了地区/频率限制，GitHub Actions 与本地网络环境不同，可能某个环境能访问、另一个不能。脚本会按 `urls` 顺序自动尝试所有备用地址，只把成功的写入。
-- **自动提交会不会死循环？** 不会。push 触发只监听 `config/`、`scripts/`、`requirements.txt` 的变更，自动提交只改 `output/` 与 README 状态区，不会再次触发。
+仓库内历史 `output` 仅为旧快照，最新结果以 Pages 为准，CI 每次都从干净的产物目录生成。
 
-## 九、免责声明
+## 免责声明
 
-本项目仅用于学习、测试与个人使用；聚合的接口资源来自互联网公开分享，版权归原作者所有。若涉及侵权，请联系删除相应内容。
+配置来自互联网公开分享，版权归原作者所有。本项目仅供学习、测试与个人使用，请勿商用；若涉及侵权，请联系删除相应内容。

@@ -56,10 +56,11 @@ def idn_encode(url):
 
 def validate_public_url(url):
     """Prevent a public config URL or redirect from targeting private services."""
+    original = urllib.parse.urlsplit(url)
+    if original.username or original.password:
+        raise ValueError("配置地址不允许包含用户名或密码")
     target = idn_encode(url)
     parsed = urllib.parse.urlsplit(target)
-    if parsed.username or parsed.password:
-        raise ValueError("配置地址不允许包含用户名或密码")
     host = parsed.hostname
     try:
         addresses = {entry[4][0] for entry in socket.getaddrinfo(
@@ -270,7 +271,7 @@ def write_json(path, data):
 def build(cfg, repo, base):
     checker = Checker(base)
 
-        def source(src):
+    def source(src):
         sid, name = src["id"], src["name"]
         if not re.fullmatch(r"[A-Za-z0-9_-]+", sid):
             raise ValueError(f"无效源 id: {sid}")

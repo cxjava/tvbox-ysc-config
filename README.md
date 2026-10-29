@@ -9,7 +9,9 @@
 - **单仓聚合**：https://cxjava.github.io/tvbox-ysc-config/单仓聚合.json
 - **完整检测记录**：https://cxjava.github.io/tvbox-ysc-config/status.json
 
-将订阅地址填入 TVBox、影视仓或 OK影视的配置设置。首页展示本轮可用源、有效单仓、失败检查项、聚合站点数量，以及逐层子仓和 UA 请求结果，也提供全部 JSON 产物链接。
+将订阅地址填入 TVBox、影视仓或 OK影视的配置设置。首页展示本轮可用源、有效单仓、失败检查项、聚合站点数量，以及逐层子仓和 UA 请求结果，也提供全部 JSON 产物链接。每个订阅入口都有中文用途说明、可读的中文地址和「复制地址」按钮。
+
+**单仓推荐使用分份版**：每份最多 100 个站点，文件名为 `单仓聚合-1.json`、`单仓聚合-2.json` 等，具体份数随本轮站点数量自动变化。每份保留插件、解析、直播等公共配置，可独立导入；首页显示每份的站点数量，并保留完整版入口。例如 250 个站点会生成 100、100、50 个站点的三份。
 
 首次部署：在仓库 **Settings → Pages → Build and deployment → Source** 选择 **GitHub Actions**，然后运行 **Actions → Auto Update TVBox Configs → Run workflow**。
 
@@ -76,6 +78,8 @@ output/
 ├── REPORT.md           # Actions 摘要
 ├── 多仓订阅.json         # 通过检测的配置源
 ├── 单仓聚合.json         # 含有效子仓站点的聚合
+├── 单仓聚合-1.json       # 分份单仓，每份最多 100 个站点
+├── 单仓聚合-2.json       # 按站点数量继续生成更多份
 ├── <id>.json           # 各源已过滤镜像
 ├── children/*.json     # 有效子仓镜像
 ├── status.json         # 本轮检测详细记录

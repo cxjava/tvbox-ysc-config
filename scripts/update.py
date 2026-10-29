@@ -268,6 +268,17 @@ def write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def split_config(merged, size=100):
+    """每份保留完整公共配置，站点按原顺序无遗漏地拆分。"""
+    parts = {}
+    sites = merged.get("sites", [])
+    for offset in range(0, len(sites), size):
+        part = copy.deepcopy(merged)
+        part["sites"] = part["sites"][offset:offset + size]
+        parts[f"单仓聚合-{offset // size + 1}.json"] = part
+    return parts
+
+
 def build(cfg, repo, base):
     checker = Checker(base)
 
@@ -300,8 +311,11 @@ def build(cfg, repo, base):
             subscriptions.append({"name": entry["name"], "url": f"{base}/{entry['file']}"})
     files["多仓订阅.json"] = {"urls": subscriptions}
     merged = merge_configs(list(leaves.values()))
+    parts = {}
     if merged:
         files["单仓聚合.json"] = merged
+        parts = split_config(merged)
+        files.update(parts)
     checks = []
 
     def collect(report):
@@ -315,6 +329,8 @@ def build(cfg, repo, base):
     ok = len(subscriptions)
     status = {"updated_at": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat(timespec="seconds"),
               "repo": repo, "base_url": base, "sources": sources,
+              "single_parts": [{"file": name, "sites": len(data["sites"])}
+                               for name, data in parts.items()],
               "summary": {"sources_ok": ok, "sources_total": len(sources),
                           "checks_total": len(checks), "checks_ok": sum(x["ok"] for x in checks),
                           "checks_failed": sum(not x["ok"] for x in checks),

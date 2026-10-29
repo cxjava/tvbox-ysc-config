@@ -85,6 +85,10 @@ class BuildTests(unittest.TestCase):
             document = (output / "index.html").read_text()
             self.assertIn("本轮检测明细", document)
             self.assertIn("REPORT.md", document)
+            self.assertIn('class="copy-url"', document)
+            self.assertIn('data-url="https://owner.github.io/project/%E5', document)
+            self.assertIn("https://owner.github.io/project/单仓聚合-1.json</a>", document)
+            self.assertIn("第 1 份（共 1 份）", document)
 
     def test_no_old_cache_used_and_no_aggregate_when_all_fail(self):
         cfg = {"sources": [{"id": "old", "name": "Old", "urls": ["https://a.test/config"]}]}
@@ -101,6 +105,19 @@ class BuildTests(unittest.TestCase):
         merged = update.merge_configs([("a", "A", SINGLE), ("b", "B", second)])
         self.assertEqual([s["jar"] for s in merged["sites"]], ["./plugin.jar", "https://b.test/b.jar"])
         self.assertNotIn("jar", SINGLE["sites"][0])
+
+    def test_parts_have_at_most_100_sites_and_preserve_every_site_and_config(self):
+        for count, sizes in ((0, []), (100, [100]), (101, [100, 1]), (250, [100, 100, 50])):
+            with self.subTest(count=count):
+                merged = {"spider": "https://a.test/plugin.jar", "parses": [{"name": "parser"}],
+                          "sites": [{"key": str(i), "jar": f"https://a.test/{i}.jar"} for i in range(count)]}
+                parts = update.split_config(merged)
+                self.assertEqual([len(p["sites"]) for p in parts.values()], sizes)
+                self.assertEqual([site for part in parts.values() for site in part["sites"]], merged["sites"])
+                for part in parts.values():
+                    self.assertEqual(part["parses"], merged["parses"])
+                    self.assertEqual(part["spider"], merged["spider"])
+                    self.assertIsNot(part["parses"], merged["parses"])
 
     def test_pages_base_supports_user_site_and_custom_domain(self):
         with patch.dict(update.os.environ, {}, clear=True):

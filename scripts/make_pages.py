@@ -30,8 +30,9 @@ def make_pages(output, status):
     downloads = "".join(f'<li><a href="{esc(link(f))}">{esc(f)}</a></li>' for f in artifacts)
     entries = [("多仓订阅.json", "多仓订阅（推荐）", "保留各配置源，导入后可在应用内切换。")]
     parts = status.get("single_parts", [])
+    sites_per_part = status.get("sites_per_part", 500)
     entries += [(part["file"], f"单仓聚合 · 第 {index} 份（共 {len(parts)} 份）",
-                 f"包含 {part['sites']} 个站点，每份最多 100 个；可单独导入使用。")
+                 f"包含 {part['sites']} 个站点，每份最多 {sites_per_part} 个；可单独导入使用。")
                 for index, part in enumerate(parts, 1)]
     entries.append(("单仓聚合.json", "单仓聚合 · 完整版", "包含全部站点，数量较多；日常使用建议选择上方分份单仓。"))
     primary = ""
@@ -64,7 +65,7 @@ details{{margin-top:6px;max-width:700px;overflow-wrap:anywhere}}summary{{cursor:
 <div class="stats"><div><strong>{summary['sources_ok']} / {summary['sources_total']}</strong>可用配置源</div>
 <div><strong>{summary['single_configs']}</strong>有效单仓</div><div><strong>{summary['checks_failed']}</strong>失败检查项</div>
 <div><strong>{summary['sites']}</strong>聚合站点</div></div>
-<h2>订阅入口</h2><p>复制地址到 TVBox / 影视仓的配置设置。单仓按每份最多 100 个站点拆分，每份都可独立使用；中文地址便于辨认，复制按钮会复制兼容客户端的编码地址。</p>{primary}
+<h2>订阅入口</h2><p>复制地址到 TVBox / 影视仓的配置设置。单仓按每份最多 {sites_per_part} 个站点拆分，每份都可独立使用；中文地址便于辨认，复制按钮会复制兼容客户端的编码地址。</p>{primary}
 <div class="copy-status" role="status" aria-live="polite"></div>
 <p>依次使用 okhttp、Android Chrome、iPhone Safari 检测；子仓失败即从本轮产物剔除。检测范围为配置下载与结构解析，未验证站内搜索、播放或插件运行。</p>
 <h2>本轮检测明细</h2><p><a href="status.json">完整 JSON 报告</a> · <a href="REPORT.md">Markdown 摘要</a> · <a href="https://github.com/{esc(status['repo'])}">项目仓库</a></p>

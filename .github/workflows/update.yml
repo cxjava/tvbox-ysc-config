@@ -4,6 +4,12 @@ name: Auto Update TVBox Configs
   schedule:
     - cron: "0 2,14 * * *"
   workflow_dispatch:
+    inputs:
+      sites_per_part:
+        description: "每份单仓最多站点数（正整数）"
+        type: string
+        required: true
+        default: "500"
   push:
     branches: [main]
     paths:
@@ -41,6 +47,7 @@ jobs:
         id: build
         env:
           PAGES_BASE_URL: ${{ steps.pages.outputs.base_url }}
+          SITES_PER_PART: ${{ inputs.sites_per_part || '500' }}
         # 干净目录确保历史产物不会进入本轮部署。
         run: |
           rm -rf output

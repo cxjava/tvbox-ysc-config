@@ -268,8 +268,10 @@ def write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
-def split_config(merged, size=100):
+def split_config(merged, size=500):
     """每份保留完整公共配置，站点按原顺序无遗漏地拆分。"""
+    if not isinstance(size, int) or isinstance(size, bool) or size <= 0:
+        raise ValueError("每份单仓最多站点数必须为正整数")
     parts = {}
     sites = merged.get("sites", [])
     for offset in range(0, len(sites), size):
@@ -279,7 +281,9 @@ def split_config(merged, size=100):
     return parts
 
 
-def build(cfg, repo, base):
+def build(cfg, repo, base, sites_per_part=500):
+    if not isinstance(sites_per_part, int) or isinstance(sites_per_part, bool) or sites_per_part <= 0:
+        raise ValueError("SITES_PER_PART 必须为正整数")
     checker = Checker(base)
 
     def source(src):
@@ -314,7 +318,7 @@ def build(cfg, repo, base):
     parts = {}
     if merged:
         files["单仓聚合.json"] = merged
-        parts = split_config(merged)
+        parts = split_config(merged, sites_per_part)
         files.update(parts)
     checks = []
 
@@ -329,6 +333,7 @@ def build(cfg, repo, base):
     ok = len(subscriptions)
     status = {"updated_at": datetime.datetime.now(datetime.timezone(datetime.timedelta(hours=8))).isoformat(timespec="seconds"),
               "repo": repo, "base_url": base, "sources": sources,
+              "sites_per_part": sites_per_part,
               "single_parts": [{"file": name, "sites": len(data["sites"])}
                                for name, data in parts.items()],
               "summary": {"sources_ok": ok, "sources_total": len(sources),
@@ -344,7 +349,14 @@ def build(cfg, repo, base):
 def main():
     cfg = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
     repo = os.environ.get("GITHUB_REPOSITORY") or os.environ.get("REPO") or "cxjava/tvbox-ysc-config"
-    files, status = build(cfg, repo, pages_base(repo))
+    try:
+        sites_per_part = int(os.environ.get("SITES_PER_PART", "500"))
+        if sites_per_part <= 0:
+            raise ValueError
+    except ValueError:
+        print("SITES_PER_PART 必须为正整数", file=sys.stderr)
+        return 1
+    files, status = build(cfg, repo, pages_base(repo), sites_per_part)
     # 先完整生成，再更新 output，防止抓取中断留下半套产物。
     with tempfile.TemporaryDirectory(prefix="tvbox-") as temp:
         stage = Path(temp)

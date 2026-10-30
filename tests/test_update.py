@@ -111,13 +111,22 @@ class BuildTests(unittest.TestCase):
             with self.subTest(count=count):
                 merged = {"spider": "https://a.test/plugin.jar", "parses": [{"name": "parser"}],
                           "sites": [{"key": str(i), "jar": f"https://a.test/{i}.jar"} for i in range(count)]}
-                parts = update.split_config(merged)
+                parts = update.split_config(merged, size=100)
                 self.assertEqual([len(p["sites"]) for p in parts.values()], sizes)
                 self.assertEqual([site for part in parts.values() for site in part["sites"]], merged["sites"])
                 for part in parts.values():
                     self.assertEqual(part["parses"], merged["parses"])
                     self.assertEqual(part["spider"], merged["spider"])
                     self.assertIsNot(part["parses"], merged["parses"])
+
+    def test_default_part_size_is_500_and_invalid_sizes_are_rejected(self):
+        parts = update.split_config({"sites": [{"key": str(i)} for i in range(1001)]})
+        self.assertEqual([len(p["sites"]) for p in parts.values()], [500, 500, 1])
+        for size in (0, -1, "abc", 1.5, True):
+            with self.subTest(size=size), self.assertRaises(ValueError):
+                update.split_config({"sites": []}, size)
+        with self.assertRaises(ValueError):
+            update.build({}, "owner/repo", "https://example.com", sites_per_part=0)
 
     def test_pages_base_supports_user_site_and_custom_domain(self):
         with patch.dict(update.os.environ, {}, clear=True):
